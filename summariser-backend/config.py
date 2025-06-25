@@ -1,7 +1,7 @@
 DB_CONFIG = {
-    "dbname": "summariser",
-    "user": "postgres",
-    "password": "P@ssw0rd",
-    "host": "localhost",
-    "port": "5433"
+    'host': 'localhost',
+    'port': 5432,
+    'dbname': 'summariser_db',
+    'user': 'postgres',
+    'password': 'P@ssw0rd'
 }

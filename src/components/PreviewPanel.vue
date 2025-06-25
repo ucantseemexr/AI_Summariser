@@ -6,7 +6,22 @@
                 <iframe :src="preview.url" class="preview-iframe" frameborder="0"></iframe>
             </div>
             <div v-else-if="preview && preview.content">
-                {{ preview.content }}
+                <div v-for="(block, index) in preview.content" :key="index" class="block-item">
+                    <p v-if="block.type === 'paragraph'">{{ block.text }}</p>
+
+                    <table v-else-if="block.type === 'table'" class="preview-table">
+                        <thead>
+                            <tr>
+                                <th v-for="(cell, i) in block.rows[0]" :key="i">{{ cell }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(row, rowIndex) in block.rows.slice(1)" :key="rowIndex">
+                                <td v-for="(cell, i) in row" :key="i">{{ cell }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
             <div v-else>
                 <p>No preview available.</p>
@@ -63,9 +78,32 @@ export default {
 }
 
 .preview-iframe {
-  flex: 1;
+    flex: 1;
+    width: 100%;
+    height: 800px;
+    border: none;
+}
+
+.block-item {
+  margin-bottom: 1rem;
+}
+
+.preview-table {
   width: 100%;
-  height: 800px;
-  border: none;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+}
+
+.preview-table th,
+.preview-table td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: left;
+  background-color: #fff;
+}
+
+.preview-table th {
+  background-color: #e9ecef;
+  font-weight: bold;
 }
 </style>

@@ -1,0 +1,3 @@
+Artificial intelligence (AI) has become a transformative force across industries. In healthcare, AI is used for diagnostics, personalized treatment plans, and drug discovery. AI-powered tools like ChatGPT and DALL·E are revolutionizing how we interact with machines, generating natural language responses and creative images.
+
+Despite the advantages, concerns remain regarding data privacy, job displacement, and ethical governance. Governments and tech companies are actively debating AI regulation. Meanwhile, AI adoption continues to accelerate in sectors like finance, education, and retail. Collaboration between academia and industry is crucial to ensure responsible innovation.

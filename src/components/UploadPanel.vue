@@ -9,7 +9,7 @@
             <ul class="file-list" v-if="internalFiles.length > 0">
                 <li v-for="(file, index) in internalFiles" :key="index" class="file-entry">
                     <div class="file-row">
-                        <input type="checkbox" checked />
+                        <input type="checkbox" :checked="isSelected(file)" @change="toggleFileSelection(file)" />
                         <span class="file-name">{{ file.originalName }}</span>
                         <button class="preview-button" @click="previewFile(file)">PREVIEW</button>
                         <button class="delete-button" @click="removeFile(index)">✕</button>
@@ -27,18 +27,25 @@ export default {
         uploadedFiles: {
             type: Array,
             required: true
+        },
+        selectedFiles: {
+            type: Array,
+            required: true
         }
     },
-    emits: ['update:uploadedFiles', 'preview-content', 'file-upload'],
+    emits: ['update:uploadedFiles', 'update:selectedFiles', 'preview-content', 'file-upload'],
     data() {
         return {
-            internalFiles: [...this.uploadedFiles]
+            internalFiles: [...this.uploadedFiles],
+            internalSelectedFiles: [...this.selectedFiles]
         };
     },
     watch: {
         uploadedFiles(newFiles) {
             this.internalFiles = [...newFiles];
-
+        },
+        selectedFiles(newSelected) {
+            this.internalSelectedFiles = [...newSelected];
         }
     },
     methods: {
@@ -54,8 +61,14 @@ export default {
             this.$emit('file-upload', dropped);
         },
         removeFile(index) {
+            const removed = this.internalFiles[index];
             this.internalFiles.splice(index, 1);
-            this.$emit('update:uploadedFiles', this.internalFiles);
+            this.internalSelectedFiles = this.internalSelectedFiles.filter(
+                f => !(f.name === removed.name && f.size === removed.size)
+            );
+
+            this.$emit('update:uploadedFiles', [...this.internalFiles]);
+            this.$emit('update:selectedFiles', [...this.internalSelectedFiles]);
         },
         previewFile(file) {
             const ext = file.name.split('.').pop().toLowerCase();
@@ -80,6 +93,31 @@ export default {
                     content: 'Preview not supported for this file type.'
                 });
             }
+        },
+
+        isSelected(file) {
+            return this.internalSelectedFiles.some(
+                f => f.name === file.name && f.size === file.size
+            );
+        },
+
+        toggleFileSelection(file) {
+            console.log(file.name)
+            const exists = this.internalSelectedFiles.some(
+                f => f.name === file.name && f.size === file.size
+            );
+
+
+            if (exists) {
+                this.internalSelectedFiles = this.internalSelectedFiles.filter(
+                    f => !(f.name === file.name && f.size === file.size)
+                );
+            } else {
+                this.internalSelectedFiles.push(file);
+            }
+
+            this.$emit('update:selectedFiles', this.internalSelectedFiles);
+            console.log(this.internalSelectedFiles)
         },
     }
 };

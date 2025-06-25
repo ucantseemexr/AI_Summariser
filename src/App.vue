@@ -5,17 +5,17 @@
 
     <div class="section-box split-layout">
       <div class="left-column">
-        <SettingsPanel :templateMode="templateMode" :selectedTemplate="selectedTemplate"
-          :availableTemplates="availableTemplates" :customTemplateName="customTemplateName"
-          :customSections="customSections" @update:templateMode="templateMode = $event"
-          @update:selectedTemplate="selectedTemplate = $event" @update:customTemplateName="customTemplateName = $event"
-          @update:customSections="customSections = $event" @addSection="addSection" @removeSection="removeSection"
-          @addSubsection="addSubsection" @removeSubsection="removeSubsection" @saveTemplate="saveTemplate" />
+        <SettingsPanel :templateMode="templateMode" :selectedTemplateId="selectedTemplateId"
+          :selectedTemplate="selectedTemplate" :availableTemplates="availableTemplates"
+          :customTemplateName="customTemplateName" :customSections="customSections"
+          @update:templateMode="templateMode = $event" @update:selectedTemplateId="selectedTemplateId = $event"
+          @update:customTemplateName="customTemplateName = $event" @update:customSections="customSections = $event"
+          @addSection="addSection" @removeSection="removeSection" @addSubsection="addSubsection"
+          @removeSubsection="removeSubsection" @saveTemplate="saveTemplate" />
 
-        <UploadPanel :uploaded-files="uploadedFiles" @update:uploadedFiles="uploadedFiles = $event"
+        <UploadPanel :uploaded-files="uploadedFiles" :selected-files="selectedFiles"
+          @update:uploadedFiles="uploadedFiles = $event" @update:selectedFiles="selectedFiles = $event"
           @preview-content="handlePreview" @file-upload="handleFileUpload" />
-
-
 
       </div>
 
@@ -23,10 +23,13 @@
     </div>
 
     <div class="section-box">
-      <OutputSection :template-mode="templateMode" :selected-template="selectedTemplate"
-        :custom-sections="customSections" :available-templates="availableTemplates" :summary="summary"
-        @update:summary="summary = $event" />
-    </div>
+      <OutputSection :summaryBySections="summaryBySections"
+        :sectionOrder="templateMode === 'custom' ? customSections : selectedTemplate?.structure"
+        @update:summary="summary = $event" @update-section-summary="updateSectionSummary"
+        @generate-summary="generateSummary" @regenerate-section="handleSectionRegenerate" />
+      <StreamOutputSection 
+        :selectedFiles="selectedFiles" :sectionOrder="templateMode === 'custom' ? customSections : selectedTemplate?.structure" />
+      </div>
   </div>
 </template>
 
@@ -36,6 +39,7 @@ import HeroComponent from './components/HeroComponent.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
 import UploadPanel from './components/UploadPanel.vue';
 import PreviewPanel from './components/PreviewPanel.vue';
+import StreamOutputSection from './components/StreamOutputSection.vue';
 import OutputSection from './components/OutputSection.vue';
 
 export default {
@@ -45,22 +49,31 @@ export default {
     SettingsPanel,
     UploadPanel,
     PreviewPanel,
-    OutputSection,
+    StreamOutputSection,
+    OutputSection
   },
   data() {
     return {
       uploadedFiles: [],
+      selectedFiles: [],
       previewFile: null,
+      selectedTemplateId: null,
       selectedTemplate: null,
       templateMode: 'choose',
       customTemplateName: '',
       customSections: [],
       availableTemplates: [],
       summary: '',
+      summaryBySections: {},
     };
   },
   mounted() {
     this.fetchTemplates();
+  },
+  watch: {
+    selectedTemplateId(newId) {
+      this.selectedTemplate = this.availableTemplates.find(t => t.id === newId) || null;
+    }
   },
   methods: {
     async fetchTemplates() {
@@ -68,6 +81,7 @@ export default {
         const response = await fetch('http://localhost:5000/api/templates');
         const data = await response.json();
         this.availableTemplates = data;
+        this.selectedTemplateId = null;
         console.log("Loaded templates:", data);
       } catch (err) {
         console.error("Failed to fetch templates:", err);
@@ -175,19 +189,110 @@ export default {
           const result = await res.json();
           console.log('File uploaded to server:', result);
 
-          this.uploadedFiles = [
-            ...this.uploadedFiles,
-            {
-              originalName: file.name,
-              name: result.filename
-            }
-          ];
+          const newFile = {
+            originalName: file.name,
+            name: result.filename
+          };
+
+          this.uploadedFiles = [...this.uploadedFiles, newFile];
+          this.selectedFiles = [...this.selectedFiles, newFile]; // Automatically select uploaded files
         } catch (err) {
           console.error('File upload failed:', err.message || err);
           alert(`Error uploading "${file.name}": ${err.message}`);
         }
       }
-    }
+    },
+
+    async generateSummary(done) {
+      console.log(this.selectedTemplate)
+      console.log(this.selectedFiles)
+
+      const CombinedfileContent = [];
+      for (const file of this.selectedFiles) {
+
+        try {
+          const res = await fetch(`http://localhost:5000/api/preview/${encodeURIComponent(file.name)}`);
+          const data = await res.json();
+          if (data.content) {
+            CombinedfileContent.push(...data.content);
+          }
+        } catch (err) {
+          console.error(`Error reading file ${file.name}:`, err);
+        }
+      }
+      console.log(CombinedfileContent)
+      const payload = {
+        text: CombinedfileContent,
+        sections: this.templateMode === 'custom' ? this.customSections : this.selectedTemplate.structure
+      };
+
+      try {
+        const res = await fetch('http://localhost:5000/api/summarise_FAISS', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await res.json();
+        this.summaryBySections = result
+      } catch (err) {
+        console.error('Failed to generate summary:', err);
+        alert('Failed to generate summary.');
+      } finally {
+        done(); // inform OutputSection that it's done
+      }
+    },
+
+
+    async handleSectionRegenerate({ section, instruction, callback }) {
+      const CombinedfileContent = [];
+
+      for (const file of this.selectedFiles) {
+        try {
+          const res = await fetch(`http://localhost:5000/api/preview/${encodeURIComponent(file.name)}`);
+          const data = await res.json();
+          if (data.content) {
+            CombinedfileContent.push(...data.content);
+          }
+        } catch (err) {
+          console.error(`Failed to read ${file.name}:`, err);
+        }
+      }
+      const payload = {
+        text: CombinedfileContent,
+        sections: [
+          {
+            title: section,
+            instruction: instruction,
+            subsections: this.selectedTemplate.structure.find(t => t['title'] === section)['subsections'],
+          }
+        ],
+        originalSummaries: {
+          [section]: this.summaryBySections[section]
+        },
+      };
+
+      try {
+        const res = await fetch('http://localhost:5000/api/adjust_summary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (callback) {
+          callback(data.revised_summary.trim());
+        }
+      } catch (err) {
+        console.error(`Failed to regenerate summary for ${section}:`, err);
+        alert(`Error updating section: ${section}`);
+      }
+    },
+
+    updateSectionSummary({ section, summary }) {
+      this.summaryBySections[section] = summary
+
+    },
 
   }
 };

@@ -8,7 +8,7 @@
                 <input type="radio" value="use" :checked="templateMode === 'use'"
                     @change="$emit('update:templateMode', 'use')" />
                 Use Template:
-                <select :value="selectedTemplate" @change="$emit('update:selectedTemplate', $event.target.value)"
+                <select :value="selectedTemplateId" @change="$emit('update:selectedTemplateId', Number($event.target.value))"
                     :disabled="templateMode !== 'use'">
                     <option disabled value="">-- Select Template --</option>
                     <option v-for="template in availableTemplates" :key="template.id" :value="template.id">
@@ -74,7 +74,8 @@ export default {
     components: { draggable },
     props: {
         templateMode: String,
-        selectedTemplate: String,
+        selectedTemplate: Object,
+        selectedTemplateId: Number,
         availableTemplates: Array,
         customTemplateName: String,
         customSections: Array,
